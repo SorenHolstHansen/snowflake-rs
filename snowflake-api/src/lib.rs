@@ -78,7 +78,9 @@ pub enum SnowflakeApiError {
     #[error(transparent)]
     TokioTaskJoinError(#[from] tokio::task::JoinError),
 
-    #[error("Snowflake API error. Code: `{0}`. Message: `{1}`. QueryId: `{2}`")]
+    #[error(
+        "Snowflake API error. Code: `{code:?}`. Message: `{message:?}`. QueryId: `{query_id:?}`"
+    )]
     ApiError {
         code: String,
         message: String,
