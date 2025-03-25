@@ -78,8 +78,12 @@ pub enum SnowflakeApiError {
     #[error(transparent)]
     TokioTaskJoinError(#[from] tokio::task::JoinError),
 
-    #[error("Snowflake API error. Code: `{0}`. Message: `{1}`")]
-    ApiError(String, String),
+    #[error("Snowflake API error. Code: `{0}`. Message: `{1}`. QueryId: `{2}`")]
+    ApiError {
+        code: String,
+        message: String,
+        query_id: String,
+    },
 
     #[error("Snowflake API empty response could mean that query wasn't executed correctly or API call was faulty")]
     EmptyResponse,
@@ -463,10 +467,11 @@ impl SnowflakeApi {
                 put::put(pg).await?;
                 Ok(res)
             }
-            ExecResponse::Error(e) => Err(SnowflakeApiError::ApiError(
-                e.data.error_code,
-                e.message.unwrap_or_default(),
-            )),
+            ExecResponse::Error(e) => Err(SnowflakeApiError::ApiError {
+                code: e.data.error_code,
+                message: e.message.unwrap_or_default(),
+                query_id: e.data.query_id,
+            }),
         }
     }
 
@@ -494,10 +499,11 @@ impl SnowflakeApi {
             // processable response
             ExecResponse::Query(qr) => Ok(qr),
             ExecResponse::PutGet(_) => Err(SnowflakeApiError::UnexpectedResponse),
-            ExecResponse::Error(e) => Err(SnowflakeApiError::ApiError(
-                e.data.error_code,
-                e.message.unwrap_or_default(),
-            )),
+            ExecResponse::Error(e) => Err(SnowflakeApiError::ApiError {
+                code: e.data.error_code,
+                message: e.message.unwrap_or_default(),
+                query_id: e.data.query_id,
+            }),
         }?;
         let mut resp = orig_resp.clone();
         while resp.is_async() {
@@ -509,10 +515,11 @@ impl SnowflakeApi {
                 ExecResponse::Query(qr) => qr,
                 ExecResponse::PutGet(_) => return Err(SnowflakeApiError::UnexpectedResponse),
                 ExecResponse::Error(e) => {
-                    return Err(SnowflakeApiError::ApiError(
-                        e.data.error_code,
-                        e.message.unwrap_or_default(),
-                    ))
+                    return Err(SnowflakeApiError::ApiError {
+                        code: e.data.error_code,
+                        message: e.message.unwrap_or_default(),
+                        query_id: e.data.query_id,
+                    })
                 }
             };
         }
